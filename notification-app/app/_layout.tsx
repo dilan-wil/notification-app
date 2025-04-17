@@ -1,56 +1,111 @@
 import { Slot } from 'expo-router';
-import { useEffect } from 'react';
-import { Audio } from 'expo-av';
-import messaging from '@react-native-firebase/messaging';
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Platform, Text, ScrollView } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
+  const [isReady, setIsReady] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState('');
+  const [error, setError] = useState('');
+
   useEffect(() => {
-    const setup = async () => {
-      // Request permissions
-      await messaging().requestPermission();
-      
-      // Get and send FCM token
-      const token = await messaging().getToken();
-      console.log(token)
-      // await fetch('http://YOUR_NODE_RED_IP:1880/save-token', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ token })
-      // });
+    const setupNotifications = async () => {
+      try {
+        if (!Device.isDevice) {
+          setError('Notifications require a physical device.');
+          return;
+        }
 
-      // Notification handlers
-      messaging().onMessage(async remoteMessage => {
-        // await playAlertSound();
-        await storeNotification(remoteMessage.data);
-      });
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
 
-      messaging().setBackgroundMessageHandler(async remoteMessage => {
-        await storeNotification(remoteMessage.data);
-      });
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+          setError('Notification permissions not granted');
+          return;
+        }
+
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        console.log('Expo Push Token:', tokenData.data);
+        setExpoPushToken(tokenData.data);
+
+        const foregroundSub = Notifications.addNotificationReceivedListener(notification => {
+          console.log('Foreground notification:', notification);
+          storeNotification(notification.request.content);
+        });
+
+        const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+          console.log('Notification tapped:', response);
+        });
+
+        return () => {
+          foregroundSub.remove();
+          responseSub.remove();
+        };
+      } catch (err: any) {
+        console.error('Notification setup error:', err);
+        setError(err.message || 'Unknown error');
+      } finally {
+        setIsReady(true);
+      }
     };
 
-    setup();
+    setupNotifications();
   }, []);
 
-  const playAlertSound = async () => {
-    const { sound } = await Audio.Sound.createAsync(
-      require('../assets/alert.mp3')
+  const storeNotification = async (content: any) => {
+    try {
+      const history = await AsyncStorage.getItem('notifications') || '[]';
+      const newNotification = {
+        title: content.title,
+        body: content.body,
+        data: content.data || null,
+        timestamp: new Date().toISOString()
+      };
+      const newHistory = [newNotification, ...JSON.parse(history)];
+      await AsyncStorage.setItem('notifications', JSON.stringify(newHistory));
+    } catch (error) {
+      console.error('Storage error:', error);
+    }
+  };
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
     );
-    await sound.playAsync();
-  };
+  }
 
-  const storeNotification = async (data: any) => {
-    const history = await AsyncStorage.getItem('notifications') || '[]';
-    const newNotification = {
-      title: data.title,
-      body: data.body,
-      image: data.image,
-      timestamp: data.timestamp
-    };
-    const newHistory = [newNotification, ...JSON.parse(history)];
-    await AsyncStorage.setItem('notifications', JSON.stringify(newHistory));
-  };
-
-  return <Slot />;
+  return (
+    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}>
+      {error ? (
+        <Text style={{ color: 'red', textAlign: 'center', marginBottom: 20 }}>{error}</Text>
+      ) : null}
+      {expoPushToken ? (
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontWeight: 'bold', textAlign: 'center' }}>Expo Push Token:</Text>
+          <Text
+            selectable
+            style={{
+              textAlign: 'center',
+              color: '#333',
+              fontSize: 12,
+              marginTop: 5,
+              paddingHorizontal: 10,
+            }}
+          >
+            {expoPushToken}
+          </Text>
+        </View>
+      ) : null}
+      <Slot />
+    </ScrollView>
+  );
 }
