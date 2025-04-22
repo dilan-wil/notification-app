@@ -13,7 +13,6 @@
       "bundleIdentifier": "com.anonymous.notificationapp"
     },
     "android": {
-      "googleServicesFile": "./utils/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -36,8 +35,12 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/messaging"
+      [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/alert.caf"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

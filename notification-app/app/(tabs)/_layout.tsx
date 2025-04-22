@@ -1,7 +1,6 @@
 import { Slot, Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Audio } from 'expo-av';
-import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { initializeApp } from '@react-native-firebase/app';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,14 +24,7 @@ export default function TabLayout() {
   useEffect(() => {
     const setupNotifications = async () => {
       // Demander les permissions
-      await messaging().requestPermission();
       
-      // Récupérer et envoyer le token FCM
-      const token = await messaging().getToken();
-        console.log("FCM Token:", token);
-        setFcmToken(token);
-        
-      setFcmToken(token); // Stocker le token dans l'état
 
       // await fetch('http://VOTRE_IP_NODE_RED:1880/save-token', {
       //   method: 'POST',
@@ -40,15 +32,6 @@ export default function TabLayout() {
       //   body: JSON.stringify({ token })
       // });
 
-      // Gestionnaire de notifications
-      messaging().onMessage(async remoteMessage => {
-        // await playAlertSound();
-        await storeNotification(remoteMessage.data);
-      });
-
-      messaging().setBackgroundMessageHandler(async remoteMessage => {
-        await storeNotification(remoteMessage.data);
-      });
     };
 
     setupNotifications();

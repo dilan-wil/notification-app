@@ -5,6 +5,15 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ✅ Required: Handler that shows alerts for received notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const [expoPushToken, setExpoPushToken] = useState('');
